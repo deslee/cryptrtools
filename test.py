@@ -38,6 +38,14 @@ def hex_to_ascii(hex_str):
 		y += 2
 	return ascii_string
 
+def hex_to_num(hex):
+	return int(clean_hex_str(hex), 16)
+
+def get_private_network_key(public):
+	# input hex, output hex
+	num = ((hex_to_num(public) + 128) & 255)
+	return num_to_hex(num)
+
 def num_to_hex(num):
 	h = hex(num)[2:]
 	return clean_hex_str(h)
@@ -88,9 +96,12 @@ class Base58(object):
 def Base58checkFactory(version):
 	class Inner(Base58):
 		@classmethod
-		def encode(cls, hex_str, type):
+		def encode(cls, hex_str, enc_type=None):
+			if enc_type == 'private':
+				v = get_private_network_key(version)
+			else:
+				v = version
 			#input: hex, output: base58
-			v = version[type]
 			hex_str = v + hex_str
 			return super(Inner, cls).encode( hex_str + checksum(hex_str)[:8] )
 
@@ -166,20 +177,20 @@ class Address(object):
 
 	def to_base58check(self):
 		if self.base58 is None:
-			self.base58 = self.Base58check.encode(self.hash160(), 0)
+			self.base58 = self.Base58check.encode(self.hash160())
 		return self.base58
 
 	def wallet_import_format(self):
-		return self.Base58check.encode(self.private.to_hex(), 1)
+		return self.Base58check.encode(self.private.to_hex(), 'private')
 
 class BTCAddress(Address):
-	NETWORK_HEX = ['00', '80']
+	NETWORK_HEX = '00'
 
 class LTCAddress(Address):
-	NETWORK_HEX = ['30']
+	NETWORK_HEX = '30'
 
 class DOGEAddress(Address):
-	NETWORK_HEX = ['1E']
+	NETWORK_HEX = '1E'
 
 if __name__ == '__main__':
 	class TestingAddress(object):
