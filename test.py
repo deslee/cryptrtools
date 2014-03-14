@@ -97,7 +97,7 @@ def Base58checkFactory(version):
 	class Inner(Base58):
 		@classmethod
 		def encode(cls, hex_str, enc_type=None):
-			if enc_type == 'private':
+			if enc_type == 'private': #20 bytes:
 				v = get_private_network_key(version)
 			else:
 				v = version
@@ -175,13 +175,13 @@ class Address(object):
 			self.h160 = ripemd160(sha256(self.public.to_hex()))
 		return self.h160
 
-	def to_base58check(self):
+	def base58_address(self):
 		if self.base58 is None:
-			self.base58 = self.Base58check.encode(self.hash160())
+			self.base58 = self.Base58check.encode(self.hash160()) # not private!
 		return self.base58
 
 	def wallet_import_format(self):
-		return self.Base58check.encode(self.private.to_hex(), 'private')
+		return self.Base58check.encode(self.private.to_hex(), enc_type='private')
 
 class BTCAddress(Address):
 	NETWORK_HEX = '00'
@@ -190,7 +190,7 @@ class LTCAddress(Address):
 	NETWORK_HEX = '30'
 
 class DOGEAddress(Address):
-	NETWORK_HEX = '1E'
+	NETWORK_HEX = '1e'
 
 if __name__ == '__main__':
 	class TestingAddress(object):
@@ -204,17 +204,17 @@ if __name__ == '__main__':
 		map_attr_addr = [
 			('secret', lambda addr: addr.private.to_hex()),
 			('private_key', lambda addr: addr.wallet_import_format()),
-			('address', lambda addr: addr.to_base58check()),
+			('address', lambda addr: addr.base58_address()),
 			('public_key', lambda addr: addr.public.to_hex()),
 			('public_hash160', lambda addr: addr.hash160()),
 		]
 
-		def test_btc(self):
-			address = BTCAddress(self.secret)
+		def test(self, name, addr_class):
+			address = addr_class(self.private_key)
 			for attr, addr_exp in self.map_attr_addr:
 				eval_data = getattr(self,attr)
 				eval_addr = addr_exp(address)
-				result ="{}:'{}'=='{}'\n\t{}".format(attr,eval_data, eval_addr, eval_data == eval_addr)
+				result ="{}:{} '{}'=='{}'\n\t{}".format(name,attr,eval_data, eval_addr, eval_data == eval_addr)
 				print(result)
 
 	testing_btc = [
@@ -248,8 +248,43 @@ if __name__ == '__main__':
 		),
 	]
 
+	testing_doge = [
+		TestingAddress(
+			'569c50e4fbc104546f916f012b056b2bdd74c749d91b023a5277efe00e7a77ba',
+			'6JnmE3H1pb6qPgJC84SwwABffqiQ8XNFHT9hupwripGDcEHWFk7',
+			'DDDQqMUtvjrUnoZY4PSw9MMGnYpGcv3z4n',
+			'0490416fc991c68f21847dc0719e4b5720308793650863ba4698dd3c566cf92bc0e82deb31800764f6c1a7792325d783ba8bfa19563d00852c55c1d71b4a9eea80',
+			'5891f11a2b4be1e4949f66b3ff7903774f15554b',
+		),
+		TestingAddress(
+			'583a1e5cb2d719fb5bd694ac1ec5acec056b528c3da0a7ae220ad36160d7052c',
+			'6JoUWp79YqMhA6oJCjy2MW8uJyN3Biqkwye5Crv8p8neAKcgxi4',
+			'D8kvigxXXoe8yQjxgs6sHmXEMNWVaoSSqu',
+			'04d3d6d1b460e9fe7a9a1161db76f913dcdd2b860421b895d4c4b5e61dcf3c2ab4911de8d34b9da6815b2579a35f9fa4612aab61030ea9802518f497de6542e8e4',
+			'27af278f19f84cbf17e4b8499f643e538edcb099',
+		),
+		TestingAddress(
+			'53255d24be82fde89e9e6f981b78431f33103bedd75156f2f2b115c0f871cc66',
+			'6JmEj3FFjZ3UeEm8KDDKRkvrapVHffvEbmRmNFFvG8tfQjKJH6R',
+			'DFyDfKUzKUjBCMTmYYxPjVy5znqwTPTjX6',
+			'04869df8876919d2d6155c956285ce854d441501a2f1f81259ec6384f1f841dd0595582dfe9c3c8a8dd95ed4a28c2bdc2dcb932361e5cfc20563ecceb33501c106',
+			'76cb2b3f4c00c05f67599d2ae70402537dfb1e69',
+		),
+		TestingAddress(
+			'a1d813fdf23c9841c8e057d2f06aef225f31616b593b9f4693ca3094d91fe0a3',
+			'6KMtxosvEF5keHfVjbhCZ9EM5HxU43LvUduTf88pJwVdYMtvsBX',
+			'DNdYC49QDU6a9CXYTQQb8SjSuLSoUbHboc',
+			'0453d129e5840f62e3587a2d3318294c52c8067722e0bef03bfbfdebc264825a9eec9db77b1ec84722ecfb1825c80b36cbe68cc94aef85b80a62ab08024d011691',
+			'bfdb32bc56be8890118518854119e6a352f4aa73',
+		),
+	]
+
 	for address in testing_btc:
-		address.test_btc()
+		address.test('btc', BTCAddress)
+		raw_input("press enter to continue...")
+
+	for address in testing_doge:
+		address.test('doge', DOGEAddress)
 		raw_input("press enter to continue...")
 
 	print('end')
