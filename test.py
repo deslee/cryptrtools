@@ -279,12 +279,40 @@ if __name__ == '__main__':
 		),
 	]
 
+	testing_ltc = [
+		TestingAddress(
+			'3bd8a0d6ae2b479cf90d520b2874b03492a44abc810d1c3efbfaab806c375eda',
+			'6uaNjtQ35n8NLwetL2gQL8Di8DQDA3pT6E9xwVQUX6WmjLxZch8',
+			'LQGCmZSKE4FRVjKVdotCAYQ9D68oJeEop8',
+			'0405b242da1bbb4fbaeed794a9f384cea9c48d4f8d48ded89e91f8310360fef8a34e17f08f6601289d8a0bc479338f2ed7792dc6a76a8e1588f8e1deb6c233d7db',
+			'374591e03c8c53cc633cb432bbc66296367b2bcb',
+		),
+		TestingAddress(
+			'c42ccb59d9561b70522188e43a96797b3729cb78d92ca002a1bd32457648bea7',
+			'6vcR5MC7nMytqWnUV5yo47eYwBrzFHy1CHfGmsaf87a6JJDYBF5',
+			'LTVit1gNAY2gV3J6xCdLJp35qLsk6Wua5j',
+			'0438057457126c1bf4b9935d49164ecd24c496f24382f370f7b743792f25d2dd286015cd176bf488432bdc6824bae0f664f423eea4b64171d7dc4f588e345f98e2',
+			'5abc7d8379ef198a5df47d52a8c625111cb91ab1',
+		),
+		TestingAddress(
+			'67350602ec9f935295601c6c50a9d7e8141849cc3b0e080943099f0d7e979e8e',
+			'6uuULUwC8vmcxmF6gkGQQeqD9VmS3DKpUseyStah4cD1Pxd8ore',
+			'LXq96Ph5Tirp4zuhH1ovfzEptn7f3nvwp4',
+			'042ee36474384dc9afd5d3eba8b485cb40bc35b7e46d819552482c53d5e950f6e0ab40e5dc8f9442883d626d510a5fe74cfd7336adf590618aa6ea48ecc2bfd672',
+			'8a491beb3ffbde4f95d62580a15dcbc9f0174ef5',
+		),
+	]
+
 	for address in testing_btc:
 		address.test('btc', BTCAddress)
 		raw_input("press enter to continue...")
 
 	for address in testing_doge:
 		address.test('doge', DOGEAddress)
+		raw_input("press enter to continue...")
+
+	for address in testing_ltc:
+		address.test('ltc', LTCAddress)
 		raw_input("press enter to continue...")
 
 	print('end')
