@@ -56,9 +56,8 @@ class Base58(object):
 
 	@classmethod
 	def encode(cls, hex_str):
-		#input: hex, output: b58
+		#input: hex, output: b58string
 		num = long(hex_str, 16)
-		""" Returns num in a base58-encoded string """
 		encode = ''
 		
 		if (num < 0):
@@ -82,7 +81,7 @@ class Base58(object):
 
 	@classmethod
 	def decode(cls, s):
-		#input: b58, output: hex
+		#input: b58string, output: hex
 		""" Decodes the base58-encoded string s into an integer """
 		decoded = 0
 		multi = 1
@@ -170,14 +169,14 @@ class Address(object):
 		self.h160 = None
 		self.base58 = None
 
-	def hash160(self):
+	def hash160_address(self):
 		if self.h160 is None:
 			self.h160 = ripemd160(sha256(self.public.to_hex()))
 		return self.h160
 
 	def base58_address(self):
 		if self.base58 is None:
-			self.base58 = self.Base58check.encode(self.hash160()) # not private!
+			self.base58 = self.Base58check.encode(self.hash160_address()) # not private!
 		return self.base58
 
 	def wallet_import_format(self):
@@ -206,7 +205,7 @@ if __name__ == '__main__':
 			('private_key', lambda addr: addr.wallet_import_format()),
 			('address', lambda addr: addr.base58_address()),
 			('public_key', lambda addr: addr.public.to_hex()),
-			('public_hash160', lambda addr: addr.hash160()),
+			('public_hash160', lambda addr: addr.hash160_address()),
 		]
 
 		def test(self, name, addr_class):
