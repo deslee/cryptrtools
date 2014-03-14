@@ -1,16 +1,47 @@
 from ecdsa import SigningKey, VerifyingKey, SECP256k1
 
-def sha256(cls, hex):
+def sha256(hex_str):
+	# input: hex. output: hex
 	import hashlib
-	ascii_str = hex.decode('hex')
+	ascii_str = hex_str.decode('hex')
 	return hashlib.sha256(ascii_str).hexdigest()
+
+def clean_hex_str(hex_str):
+	if hex_str[-1] == 'L':
+		hex_str = hex_str[:-1]
+
+	if hex_str[0:2] == '0x':
+		hex_str = hex_str[2:]
+
+	return hex_str
+
+def checksum(hex_str):
+	return sha256(sha256(hex_str))
+
+def hex_to_ascii(hex_str):
+	ascii_string = ''
+	x=0
+	y=2
+	l = len(hex_str)
+	while y <= l:
+		ascii_string += chr(int(hex_str[x:y], 16))
+		x += 2
+		y += 2
+	return ascii_string
+
+def num_to_hex(num):
+	h = hex(num)[2:]
+	return clean_hex_str(h)
 
 class Base58(object):
     alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
     base_count = len(alphabet)
 
     @classmethod
-    def encode(cls, num):
+    def encode(cls, hex):
+    	#input: hex, output: b58
+
+    	num = int(hex, 16)
         """ Returns num in a base58-encoded string """
         encode = ''
         
@@ -29,6 +60,7 @@ class Base58(object):
 
     @classmethod
     def decode(cls, s):
+    	#input: b58, output: hex
         """ Decodes the base58-encoded string s into an integer """
         decoded = 0
         multi = 1
@@ -37,28 +69,21 @@ class Base58(object):
             decoded += multi * cls.alphabet.index(char)
             multi = multi * cls.base_count
             
-        return decoded
+        return num_to_hex(decoded)
 
-class Base58Check(Base58):
-	# in: int, out: b58chk
-	def encode(cls, num):
-		result = super(Base58Check, cls).encode(num)
-		chksum = sha256(sha256(num).digest()).digest()
+class Base58check(Base58):
+	@classmethod
+	def encode(cls, hex):
+		#input: hex, output: base58
+		return super(Base58check, cls).encode( hex + checksum(hex)[:8] )
+
+	@classmethod
+	def decode(cls, b58_str):
+		#input: base58, output: hex
+		return super(Base58check, cls).decode( b58_str )[:-8]
 
 class DesKeyMixin(object):
 	curve = SECP256k1
-
-	@staticmethod
-	def hex_to_ascii(hex_str):
-		ascii_string = ''
-		x=0
-		y=2
-		l = len(hex_str)
-		while y <= l:
-			ascii_string += chr(int(hex_str[x:y], 16))
-			x += 2
-			y += 2
-		return ascii_string
 
 	def __init__(self, composing_key):
 		self.composing_key = composing_key
@@ -71,9 +96,8 @@ class DesKeyMixin(object):
 
 	@classmethod
 	def from_hex(cls, hex_str):
-		if hex_str[0:2] == '0x':
-			hex_str = hex_str[2:]
-		ascii_str = cls.hex_to_ascii(hex_str)
+		hex_str = clean_hex_str(hex_str)
+		ascii_str = hex_to_ascii(hex_str)
 		return cls(cls.Key.from_string(ascii_str, curve=cls.curve))
 
 class PrivateKey(DesKeyMixin):
@@ -95,11 +119,11 @@ class PublicKey(DesKeyMixin):
 
 	@classmethod
 	def from_hex(cls, hex_str):
-		return super(PublicKey, cls).from_hex(hex_str[2:-1])
+		return super(PublicKey, cls).from_hex(hex_str)
 
 class Address(object):
 	PREFIX = ''
-	RIPE_HASH = 'ripemd160'
+	HASH_TYPE = 'ripemd160'
 
 	def __init__(self, private=None):
 		if private is None:
@@ -107,45 +131,28 @@ class Address(object):
 		elif type(private) is str:
 			# verify that it's hex
 			try:
-				int(private, 16)
+				private = PrivateKey.from_hex(private)
 			except ValueError:
-				# then it's probably base58check
-				private = hex(Base58.decode(private))
-				pass
-			print private
-			private = PrivateKey.from_hex(private)
+				#it's not hex. assume it's a base58check private key
+				print(Base58check.decode(private))
+				private = PrivateKey.from_hex(Base58check.decode(private))
 		self.private = private
 		self.public = private.get_public_key()
-		self.ripe = None
-		self.cksum = None
+		self.h160 = None
 		self.base58 = None
 
-
-	def ripen(self):
-		if self.ripe is None:
+	def hash160(self):
+		if self.h160 is None:
 			import hashlib
-			sha256 = sha256(self.public.to_hex())
-			ripe = hashlib.new(self.RIPE_HASH)
-			ripe.update(sha256.decode('hex'))
-			self.ripe = '{}{}'.format(self.NETWORK_HEX, ripe.hexdigest())
-		return self.ripe	
+			sha = sha256(self.public.to_hex())
+			hash_function = hashlib.new(self.HASH_TYPE)
+			hash_function.update(sha.decode('hex'))
+			self.h160 = '{}{}'.format(self.NETWORK_HEX, hash_function.hexdigest())
+		return self.h160
 
-	def checksum(self):
-		if self.cksum is None:
-			ripe = self.ripen()
-			sha256 = sha256(ripe)
-			self.cksum = sha256(sha256)[0:8]
-		return self.cksum 
-
-	def to_hex(self):
-		return self.ripen() + self.checksum()
-
-	def to_int(self):
-		return int(self.to_hex(), 16)
-
-	def to_base58(self):
+	def to_base58check(self):
 		if self.base58 is None:
-			self.base58 = Base58.encode(self.to_int())
+			self.base58 = Base58check.encode(self.h160)
 		return self.PREFIX + self.base58
 
 class BTCAddress(Address):
@@ -159,7 +166,9 @@ class DOGEAddress(Address):
 	NETWORK_HEX = '1E'
 
 if __name__ == '__main__':
-	s = None
-	print 'private key:', s
-	addr = DOGEAddress(s)
-	print 'base58 address:', addr.to_base58()
+	# taken from bitcoin wiki
+	pk = '18E14A7B6A307F426A94F8114701E7C8E774E7F9A47E2C2035DB29A206321725'
+	print 'private key:', pk
+	addr = BTCAddress(pk)
+	print 'ripemd', addr.hash160()
+	print 'base58 address:', addr.to_base58check()
