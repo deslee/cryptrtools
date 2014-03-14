@@ -18,6 +18,12 @@ def clean_hex_str(hex_str):
 def checksum(hex_str):
 	return sha256(sha256(hex_str))
 
+def ripemd160(hex_str):
+	import hashlib
+	hash_function = hashlib.new('ripemd160')
+	hash_function.update(hex_str.decode('hex'))
+	return hash_function.hexdigest()
+
 def hex_to_ascii(hex_str):
 	ascii_string = ''
 	x=0
@@ -40,8 +46,7 @@ class Base58(object):
     @classmethod
     def encode(cls, hex):
     	#input: hex, output: b58
-
-    	num = int(hex, 16)
+    	num = long(hex, 16)
         """ Returns num in a base58-encoded string """
         encode = ''
         
@@ -55,6 +60,12 @@ class Base58(object):
      
         if (num):
             encode = cls.alphabet[num] + encode
+
+        for i in range(0, len(hex), 2):
+        	if hex[i:i+2] == '00':
+        		encode = cls.alphabet[0] + encode
+        	else:
+        		break
      
         return encode
 
@@ -71,16 +82,19 @@ class Base58(object):
             
         return num_to_hex(decoded)
 
-class Base58check(Base58):
-	@classmethod
-	def encode(cls, hex):
-		#input: hex, output: base58
-		return super(Base58check, cls).encode( hex + checksum(hex)[:8] )
+def Base58checkFactory(version):
+	class Inner(Base58):
+		@classmethod
+		def encode(cls, hex):
+			#input: hex, output: base58
+			hex = version + hex
+			return super(Inner, cls).encode( hex + checksum(hex)[:8] )
 
-	@classmethod
-	def decode(cls, b58_str):
-		#input: base58, output: hex
-		return super(Base58check, cls).decode( b58_str )[:-8]
+		@classmethod
+		def decode(cls, b58_str):
+			#input: base58, output: hex
+			return super(Inner, cls).decode( b58_str )[:-8]
+	return Inner
 
 class DesKeyMixin(object):
 	curve = SECP256k1
@@ -123,9 +137,9 @@ class PublicKey(DesKeyMixin):
 
 class Address(object):
 	PREFIX = ''
-	HASH_TYPE = 'ripemd160'
 
 	def __init__(self, private=None):
+		self.Base58check = Base58checkFactory(self.NETWORK_HEX)
 		if private is None:
 			private = PrivateKey()
 		elif type(private) is str:
@@ -134,8 +148,8 @@ class Address(object):
 				private = PrivateKey.from_hex(private)
 			except ValueError:
 				#it's not hex. assume it's a base58check private key
-				print(Base58check.decode(private))
-				private = PrivateKey.from_hex(Base58check.decode(private))
+				print(self.Base58check.decode(private))
+				private = PrivateKey.from_hex(self.Base58check.decode(private))
 		self.private = private
 		self.public = private.get_public_key()
 		self.h160 = None
@@ -143,21 +157,16 @@ class Address(object):
 
 	def hash160(self):
 		if self.h160 is None:
-			import hashlib
-			sha = sha256(self.public.to_hex())
-			hash_function = hashlib.new(self.HASH_TYPE)
-			hash_function.update(sha.decode('hex'))
-			self.h160 = '{}{}'.format(self.NETWORK_HEX, hash_function.hexdigest())
+			self.h160 = ripemd160(sha256(self.public.to_hex()))
 		return self.h160
 
 	def to_base58check(self):
 		if self.base58 is None:
-			self.base58 = Base58check.encode(self.h160)
-		return self.PREFIX + self.base58
+			self.base58 = self.Base58check.encode(self.hash160())
+		return self.base58
 
 class BTCAddress(Address):
 	NETWORK_HEX = '00'
-	PREFIX = '1'
 
 class LTCAddress(Address):
 	NETWORK_HEX = '30'
@@ -166,9 +175,8 @@ class DOGEAddress(Address):
 	NETWORK_HEX = '1E'
 
 if __name__ == '__main__':
+	Base58check = Base58checkFactory('00')
 	# taken from bitcoin wiki
-	pk = '18E14A7B6A307F426A94F8114701E7C8E774E7F9A47E2C2035DB29A206321725'
-	print 'private key:', pk
-	addr = BTCAddress(pk)
-	print 'ripemd', addr.hash160()
-	print 'base58 address:', addr.to_base58check()
+	i = '010966776006953d5567439e5e39f86a0d273bee'
+	o = Base58check.encode(i)
+	print o
